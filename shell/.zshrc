@@ -37,4 +37,4 @@ bindkey '^[[4~' end-of-line
 bindkey '^[[7~' beginning-of-line
 bindkey '^[[8~' end-of-line
 
-PROMPT='%F{81}%n@%m%f:%F{110}%~%f %# '
+PROMPT='%F{81}%n@%m%f:%F{110}%~%f ># '
