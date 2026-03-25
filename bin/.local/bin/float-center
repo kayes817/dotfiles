@@ -1,0 +1,4 @@
+#!/usr/bin/env sh
+hyprctl dispatch setfloating active
+hyprctl dispatch resizeactive exact 1366 768
+hyprctl dispatch centerwindow

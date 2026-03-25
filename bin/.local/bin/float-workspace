@@ -1,0 +1,26 @@
+#!/usr/bin/env sh
+set -eu
+
+current_id="$(hyprctl activeworkspace -j | jq -r '.id')"
+workspace_json="$(hyprctl activeworkspace -j)"
+monitor_w="$(printf '%s' "$workspace_json" | jq -r '.w // 1280')"
+monitor_h="$(printf '%s' "$workspace_json" | jq -r '.h // 800')"
+win_w=$(( monitor_w * 68 / 100 ))
+win_h=$(( monitor_h * 72 / 100 ))
+base_x=$(( monitor_w * 12 / 100 ))
+base_y=$(( monitor_h * 10 / 100 ))
+step_x=48
+step_y=36
+idx=0
+
+hyprctl clients -j \
+  | jq -r --argjson ws "$current_id" '.[] | select(.workspace.id == $ws) | .address' \
+  | while read -r addr; do
+      [ -n "$addr" ] || continue
+      hyprctl dispatch setfloating "address:$addr" >/dev/null
+      x=$(( base_x + (idx * step_x) ))
+      y=$(( base_y + (idx * step_y) ))
+      hyprctl dispatch resizewindowpixel exact "$win_w" "$win_h","address:$addr" >/dev/null 2>&1 || true
+      hyprctl dispatch movewindowpixel exact "$x" "$y","address:$addr" >/dev/null 2>&1 || true
+      idx=$(( idx + 1 ))
+    done

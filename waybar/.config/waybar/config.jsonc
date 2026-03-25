@@ -1,0 +1,40 @@
+{
+  "layer": "top",
+  "position": "top",
+  "height": 30,
+  "spacing": 10,
+  "modules-left": ["hyprland/workspaces"],
+  "modules-center": [],
+  "modules-right": ["custom/lan", "custom/tailscale", "custom/ram", "custom/disk", "clock"],
+
+  "hyprland/workspaces": {
+    "format": "{name}",
+    "all-outputs": true,
+    "disable-scroll": true
+  },
+
+  "custom/lan": {
+    "exec": "sh -lc \"$HOME/.local/bin/waybar-host-ip\"",
+    "interval": 5
+  },
+
+  "custom/tailscale": {
+    "exec": "sh -lc \"$HOME/.local/bin/waybar-tailscale-ip\"",
+    "interval": 5
+  },
+
+  "custom/ram": {
+    "exec": "sh -lc \"$HOME/.local/bin/waybar-ram\"",
+    "interval": 5
+  },
+
+  "custom/disk": {
+    "exec": "sh -lc \"$HOME/.local/bin/waybar-disk\"",
+    "interval": 30
+  },
+
+  "clock": {
+    "format": "{:%Y-%m-%d %H:%M}",
+    "interval": 60
+  }
+}

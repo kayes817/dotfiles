@@ -1,0 +1,7 @@
+#!/usr/bin/env sh
+ip="$(ip route get 1.1.1.1 2>/dev/null | grep -oE 'src [^ ]+' | head -n1 | awk '{print $2}')"
+if [ -z "$ip" ]; then
+  echo "LAN offline"
+else
+  echo "LAN $ip"
+fi

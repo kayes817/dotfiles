@@ -1,0 +1,16 @@
+#!/usr/bin/env sh
+set -eu
+
+ROFI_THEME="$HOME/.config/rofi/current-theme.rasi"
+
+if [ ! -f "$ROFI_THEME" ]; then
+  "$HOME/.local/bin/wallpaperctl" apply
+fi
+
+exec rofi -show drun \
+  -theme "$ROFI_THEME" \
+  -show-icons \
+  -drun-match-fields name,generic,exec,categories,keywords \
+  -drun-display-format '{name}' \
+  -matching fuzzy \
+  -sort

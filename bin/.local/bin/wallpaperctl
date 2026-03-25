@@ -1,0 +1,302 @@
+#!/usr/bin/env sh
+set -eu
+
+STATE_DIR="$HOME/.local/state/hypr-theme"
+ROFI_DIR="$HOME/.config/rofi"
+WAYBAR_DIR="$HOME/.config/waybar"
+CURRENT_INDEX="$STATE_DIR/current-index"
+
+mkdir -p "$STATE_DIR" "$ROFI_DIR" "$WAYBAR_DIR"
+
+wallpaper_dirs="
+$HOME/Pictures/Wallpapers
+$HOME/.local/share/wallpapers
+"
+
+wallpapers_tmp="$(mktemp)"
+for dir in $wallpaper_dirs; do
+  if [ -d "$dir" ]; then
+    find "$dir" -maxdepth 1 -type f \( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.webp' \)
+  fi
+done | sort -u > "$wallpapers_tmp"
+
+if [ ! -s "$wallpapers_tmp" ]; then
+  echo "No wallpapers found in ~/Pictures/Wallpapers or ~/.local/share/wallpapers" >&2
+  rm -f "$wallpapers_tmp"
+  exit 1
+fi
+
+current_index() {
+  if [ -f "$CURRENT_INDEX" ] && grep -Eq '^[0-9]+$' "$CURRENT_INDEX"; then
+    idx="$(cat "$CURRENT_INDEX")"
+    count="$(wc -l < "$wallpapers_tmp")"
+    if [ "$idx" -ge 0 ] && [ "$idx" -lt "$count" ]; then
+      printf '%s\n' "$idx"
+      return
+    fi
+  fi
+  printf '0\n'
+}
+
+wallpaper_at() {
+  sed -n "$(( $1 + 1 ))p" "$wallpapers_tmp"
+}
+
+hex_up() {
+  printf '%s' "$1" | tr '[:lower:]' '[:upper:]'
+}
+
+mix_hex() {
+  awk -v c1="$1" -v c2="$2" -v t="$3" '
+    function h2d(h) { return strtonum("0x" h) }
+    BEGIN {
+      r1 = h2d(substr(c1,1,2)); g1 = h2d(substr(c1,3,2)); b1 = h2d(substr(c1,5,2));
+      r2 = h2d(substr(c2,1,2)); g2 = h2d(substr(c2,3,2)); b2 = h2d(substr(c2,5,2));
+      r = int((r1 * t) + (r2 * (1 - t)) + 0.5);
+      g = int((g1 * t) + (g2 * (1 - t)) + 0.5);
+      b = int((b1 * t) + (b2 * (1 - t)) + 0.5);
+      printf "%02X%02X%02X", r, g, b;
+    }'
+}
+
+alpha_hex() {
+  printf '%s%s' "$1" "$2"
+}
+
+pick_accent() {
+  magick "$1" -resize 256x256\> -colors 12 -depth 8 histogram:info:- \
+    | awk '
+        function h2d(h) { return strtonum("0x" h) }
+        match($0, /#([0-9A-Fa-f]{6})/, m) {
+          hex = toupper(m[1]);
+          r = h2d(substr(hex,1,2)); g = h2d(substr(hex,3,2)); b = h2d(substr(hex,5,2));
+          max = r; if (g > max) max = g; if (b > max) max = b;
+          min = r; if (g < min) min = g; if (b < min) min = b;
+          sat = (max == 0) ? 0 : (max - min) / max;
+          val = max / 255;
+          if (val > 0.20) {
+            score = sat * 0.80 + val * 0.20;
+            printf "%.6f %s\n", score, hex;
+          }
+        }' \
+    | sort -nr \
+    | awk 'NR == 1 { print $2 }'
+}
+
+avg_hex() {
+  magick "$1" -resize 1x1\! -format '%[hex:p{0,0}]' info:
+}
+
+apply_wallpaper() {
+  wallpaper="$1"
+  idx="$2"
+  printf '%s\n' "$idx" > "$CURRENT_INDEX"
+
+  avg="$(hex_up "$(avg_hex "$wallpaper")")"
+  accent="$(hex_up "$(pick_accent "$wallpaper")")"
+  if [ -z "$accent" ]; then
+    accent="$(mix_hex "$avg" "88C0D0" 0.28)"
+  fi
+
+  bg_hex="$(mix_hex "$avg" "232733" 0.18)"
+  panel_hex="$(mix_hex "$avg" "2B3040" 0.16)"
+  selected_hex="$(mix_hex "$accent" "$panel_hex" 0.24)"
+  accent_soft="$(mix_hex "$accent" "$panel_hex" 0.28)"
+  inactive_hex="$(mix_hex "$accent" "3B4252" 0.20)"
+  shadow_hex="$(alpha_hex "$accent" "33")"
+
+  cat > "$ROFI_DIR/current-theme.rasi" <<EOF
+configuration {
+  modi: "drun,run,window";
+  show-icons: true;
+  display-drun: "";
+  display-run: "Run";
+  display-window: "Windows";
+  drun-display-format: "{name}";
+  drun-match-fields: "name,generic,exec,categories,keywords";
+  matching: "fzf";
+  sort: true;
+  case-sensitive: false;
+  cycle: false;
+}
+
+* {
+  bg: #$bg_hex;
+  bg-alt: #$panel_hex;
+  fg: #ECEFF4;
+  fg-alt: #B8C0D4;
+  accent: #$accent;
+  selected: #$selected_hex;
+  border: #$accent;
+  border-soft: #$accent_soft;
+  border-radius: 0px;
+  font: "JetBrainsMono Nerd Font 12";
+}
+
+window {
+  width: 42%;
+  padding: 16px;
+  border: 1px;
+  border-color: @border-soft;
+  border-radius: @border-radius;
+  background-color: @bg;
+}
+
+mainbox {
+  spacing: 12px;
+  background-color: transparent;
+}
+
+inputbar {
+  padding: 10px 12px;
+  border: 1px;
+  border-radius: 0px;
+  border-color: @border;
+  background-color: @bg-alt;
+  text-color: @fg;
+}
+
+prompt {
+  enabled: false;
+  background-color: transparent;
+  padding: 0;
+}
+
+textbox-prompt-colon {
+  str: "";
+}
+
+entry {
+  background-color: transparent;
+  text-color: @fg;
+  placeholder: "Search apps, commands, windows";
+  placeholder-color: @fg-alt;
+}
+
+listview {
+  lines: 9;
+  columns: 1;
+  spacing: 8px;
+  scrollbar: false;
+  background-color: transparent;
+}
+
+element {
+  padding: 11px 14px;
+  border: 1px;
+  border-radius: 0px;
+  border-color: transparent;
+  background-color: @bg-alt;
+  text-color: @fg;
+}
+
+element selected {
+  background-color: @selected;
+  text-color: @fg;
+  border: 1px;
+  border-color: @accent;
+}
+
+element-text {
+  background-color: transparent;
+  text-color: inherit;
+  vertical-align: 0.5;
+}
+
+element-icon {
+  size: 24px;
+  margin: 0 12px 0 0;
+}
+EOF
+
+  cat > "$WAYBAR_DIR/current-style.css" <<EOF
+* {
+  border: none;
+  border-radius: 0;
+  font-family: "JetBrainsMono Nerd Font";
+  font-size: 12px;
+  min-height: 0;
+}
+
+window#waybar {
+  background: #$bg_hex;
+  color: #eceff4;
+  border-bottom: 1px solid #$accent;
+}
+
+#workspaces {
+  margin-left: 8px;
+}
+
+#workspaces button {
+  padding: 4px 8px;
+  color: #d8dee9;
+  background: transparent;
+}
+
+#workspaces button.active {
+  color: #1f2330;
+  background: #$accent;
+}
+
+#custom-lan,
+#custom-tailscale,
+#custom-ram,
+#custom-disk,
+#clock {
+  margin: 0 8px 0 0;
+  color: #eceff4;
+}
+
+#custom-lan {
+  color: #$accent;
+}
+
+#custom-tailscale {
+  color: #8fbcbb;
+}
+EOF
+
+  hyprctl keyword general:col.active_border "rgb($accent)" >/dev/null 2>&1 || true
+  hyprctl keyword general:col.inactive_border "rgb($inactive_hex)" >/dev/null 2>&1 || true
+  hyprctl keyword decoration:shadow:color "rgba($shadow_hex)" >/dev/null 2>&1 || true
+
+  pkill swaybg >/dev/null 2>&1 || true
+  swaybg -i "$wallpaper" -m fill >/dev/null 2>&1 &
+
+  pkill waybar >/dev/null 2>&1 || true
+  waybar -c "$HOME/.config/waybar/config.jsonc" -s "$HOME/.config/waybar/current-style.css" >/dev/null 2>&1 &
+}
+
+cmd="${1:-apply}"
+case "$cmd" in
+  apply)
+    idx="$(current_index)"
+    apply_wallpaper "$(wallpaper_at "$idx")" "$idx"
+    ;;
+  next)
+    idx="$(current_index)"
+    count="$(wc -l < "$wallpapers_tmp")"
+    idx=$(( (idx + 1) % count ))
+    apply_wallpaper "$(wallpaper_at "$idx")" "$idx"
+    ;;
+  prev)
+    idx="$(current_index)"
+    count="$(wc -l < "$wallpapers_tmp")"
+    idx=$(( (idx - 1 + count) % count ))
+    apply_wallpaper "$(wallpaper_at "$idx")" "$idx"
+    ;;
+  current)
+    wallpaper_at "$(current_index)"
+    ;;
+  list)
+    cat "$wallpapers_tmp"
+    ;;
+  *)
+    echo "Usage: wallpaperctl {apply|next|prev|current|list}" >&2
+    rm -f "$wallpapers_tmp"
+    exit 1
+    ;;
+esac
+
+rm -f "$wallpapers_tmp"
