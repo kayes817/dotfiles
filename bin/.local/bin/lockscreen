@@ -1,7 +1,6 @@
 #!/usr/bin/env sh
 exec swaylock \
-  --color 232733 \
-  --clock \
+  --color 232733ff \
   --indicator \
   --indicator-idle-visible \
   --indicator-radius 110 \
