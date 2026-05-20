@@ -9,6 +9,7 @@ CURRENT_INDEX="$STATE_DIR/current-index"
 mkdir -p "$STATE_DIR" "$ROFI_DIR" "$WAYBAR_DIR"
 
 wallpaper_dirs="
+$HOME/Wallpapers
 $HOME/Pictures/Wallpapers
 $HOME/.local/share/wallpapers
 "
@@ -64,6 +65,9 @@ alpha_hex() {
 }
 
 pick_accent() {
+  if ! command -v magick >/dev/null 2>&1; then
+    return 1
+  fi
   magick "$1" -resize 256x256\> -colors 12 -depth 8 histogram:info:- \
     | awk '
         function h2d(h) { return strtonum("0x" h) }
@@ -84,6 +88,10 @@ pick_accent() {
 }
 
 avg_hex() {
+  if ! command -v magick >/dev/null 2>&1; then
+    printf '232733'
+    return
+  fi
   magick "$1" -resize 1x1\! -format '%[hex:p{0,0}]' info:
 }
 

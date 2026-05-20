@@ -4,11 +4,121 @@ set -eu
 ROFI_THEME="$HOME/.config/rofi/current-theme.rasi"
 
 if [ ! -f "$ROFI_THEME" ]; then
-  "$HOME/.local/bin/wallpaperctl" apply
+  "$HOME/.local/bin/wallpaperctl" apply >/dev/null 2>&1 || true
+fi
+
+if [ ! -f "$ROFI_THEME" ]; then
+  mkdir -p "$HOME/.config/rofi"
+  cat > "$ROFI_THEME" <<'EOF'
+configuration {
+  modi: "drun,run,window";
+  show-icons: true;
+  display-drun: "";
+  display-run: "Run";
+  display-window: "Windows";
+  drun-display-format: "{name}";
+  drun-match-fields: "name,generic,exec,categories,keywords";
+  matching: "fzf";
+  sort: true;
+  case-sensitive: false;
+  cycle: false;
+}
+
+* {
+  bg: #1c202bEE;
+  bg-alt: #2a3040EE;
+  fg: #eceff4;
+  fg-alt: #b8c0d4;
+  accent: #8fbcbb;
+  selected: #364052EE;
+  border: #8fbcbb;
+  border-soft: #4c566a;
+  border-radius: 0px;
+  font: "JetBrainsMono Nerd Font 12";
+}
+
+window {
+  width: 46%;
+  location: center;
+  anchor: center;
+  padding: 18px;
+  border: 2px;
+  border-color: @border-soft;
+  border-radius: @border-radius;
+  background-color: @bg;
+}
+
+mainbox {
+  spacing: 12px;
+  background-color: transparent;
+}
+
+inputbar {
+  padding: 12px 14px;
+  border: 1px;
+  border-radius: 0px;
+  border-color: @border;
+  background-color: @bg-alt;
+  text-color: @fg;
+}
+
+prompt {
+  enabled: false;
+  background-color: transparent;
+  padding: 0;
+}
+
+textbox-prompt-colon {
+  str: "";
+}
+
+entry {
+  background-color: transparent;
+  text-color: @fg;
+  placeholder: "Search apps, commands, windows";
+  placeholder-color: @fg-alt;
+}
+
+listview {
+  lines: 10;
+  columns: 1;
+  spacing: 10px;
+  scrollbar: false;
+  background-color: transparent;
+}
+
+element {
+  padding: 12px 14px;
+  border: 1px;
+  border-radius: 0px;
+  border-color: transparent;
+  background-color: @bg-alt;
+  text-color: @fg;
+}
+
+element selected {
+  background-color: @selected;
+  text-color: @fg;
+  border: 2px;
+  border-color: @accent;
+}
+
+element-text {
+  background-color: transparent;
+  text-color: inherit;
+  vertical-align: 0.5;
+}
+
+element-icon {
+  size: 26px;
+  margin: 0 14px 0 0;
+}
+EOF
 fi
 
 exec rofi -show drun \
   -theme "$ROFI_THEME" \
+  -icon-theme "Papirus-Dark" \
   -show-icons \
   -drun-match-fields name,generic,exec,categories,keywords \
   -drun-display-format '{name}' \
