@@ -1,0 +1,27 @@
+#!/usr/bin/env sh
+set -eu
+
+sock="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/hypr/${HYPRLAND_INSTANCE_SIGNATURE}/.socket2.sock"
+
+if [ ! -S "$sock" ]; then
+  exit 0
+fi
+
+socat -U UNIX-CONNECT:"$sock" - | while IFS= read -r line; do
+  case "$line" in
+    openwindow\>\>*)
+      payload=${line#*>>}
+      addr=${payload%%,*}
+      rest=${payload#*,}
+      rest=${rest#*,}
+      class=${rest%%,*}
+
+      case "$class" in
+        burpsuite|BurpSuite|java)
+          hyprctl dispatch setfloating "address:${addr}" 1 >/dev/null 2>&1 || \
+            hyprctl dispatch togglefloating "address:${addr}" >/dev/null 2>&1
+          ;;
+      esac
+      ;;
+  esac
+done
